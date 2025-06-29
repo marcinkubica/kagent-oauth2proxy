@@ -1,0 +1,266 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oauth2proxy.fullname" . }}
+  labels:
+    {{- include "oauth2proxy.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "oauth2proxy.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "oauth2proxy.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "oauth2proxy.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --http-address=0.0.0.0:4180
+            {{- if .Values.metrics.enabled }}
+            - --metrics-address=0.0.0.0:{{ .Values.metrics.port }}
+            {{- end }}
+            # Upstream configuration
+            {{- if .Values.upstream.url }}
+            - --upstream={{ .Values.upstream.url }}
+            {{- else }}
+            - --upstream=http://{{ .Values.upstream.kagent.service }}:{{ .Values.upstream.kagent.port }}
+            {{- end }}
+            # Provider configuration
+            - --provider={{ .Values.oauth2.provider }}
+            {{- if eq .Values.oauth2.provider "github" }}
+            {{- if .Values.oauth2.github.org }}
+            - --github-org={{ .Values.oauth2.github.org }}
+            {{- end }}
+            {{- if .Values.oauth2.github.team }}
+            - --github-team={{ .Values.oauth2.github.team }}
+            {{- end }}
+            {{- range .Values.oauth2.github.users }}
+            - --github-user={{ . }}
+            {{- end }}
+            {{- end }}
+            {{- if eq .Values.oauth2.provider "google" }}
+            {{- if .Values.oauth2.google.hostedDomain }}
+            - --google-hosted-domain={{ .Values.oauth2.google.hostedDomain }}
+            {{- end }}
+            {{- range .Values.oauth2.google.groups }}
+            - --google-group={{ . }}
+            {{- end }}
+            {{- if .Values.oauth2.google.adminEmail }}
+            - --google-admin-email={{ .Values.oauth2.google.adminEmail }}
+            {{- end }}
+            {{- end }}
+            {{- if eq .Values.oauth2.provider "azure" }}
+            {{- if .Values.oauth2.azure.tenant }}
+            - --azure-tenant={{ .Values.oauth2.azure.tenant }}
+            {{- end }}
+            {{- end }}
+            {{- if eq .Values.oauth2.provider "oidc" }}
+            {{- if .Values.oauth2.oidc.issuerUrl }}
+            - --oidc-issuer-url={{ .Values.oauth2.oidc.issuerUrl }}
+            {{- end }}
+            {{- end }}
+            # Email domain configuration
+            {{- if .Values.oauth2.emailDomains }}
+            {{- range .Values.oauth2.emailDomains }}
+            - --email-domain={{ . }}
+            {{- end }}
+            {{- else }}
+            - --email-domain=*
+            {{- end }}
+            # Scope configuration
+            {{- if .Values.oauth2.scope }}
+            - --scope={{ .Values.oauth2.scope }}
+            {{- end }}
+            # Cookie configuration
+            - --cookie-name={{ .Values.cookie.name }}
+            {{- if .Values.cookie.domain }}
+            - --cookie-domain={{ .Values.cookie.domain }}
+            {{- end }}
+            - --cookie-expire={{ .Values.cookie.expire }}
+            {{- if .Values.cookie.refresh }}
+            - --cookie-refresh={{ .Values.cookie.refresh }}
+            {{- end }}
+            - --cookie-secure={{ .Values.cookie.secure }}
+            - --cookie-httponly={{ .Values.cookie.httpOnly }}
+            - --cookie-samesite={{ .Values.cookie.sameSite }}
+            # Session configuration
+            - --session-store-type={{ .Values.session.storeType }}
+            # Security configuration
+            - --pass-basic-auth={{ .Values.security.passBasicAuth }}
+            - --pass-user-headers={{ .Values.security.passUserHeaders }}
+            - --pass-access-token={{ .Values.security.passAccessToken }}
+            - --set-xauthrequest={{ .Values.security.setXAuthRequest }}
+            {{- if .Values.security.skipProviderButton }}
+            - --skip-provider-button
+            {{- end }}
+            {{- if .Values.security.forceHttps }}
+            - --force-https
+            {{- end }}
+            {{- if .Values.security.sslInsecureSkipVerify }}
+            - --ssl-insecure-skip-verify
+            {{- end }}
+            {{- if .Values.security.cookieCsrfPerRequest }}
+            - --cookie-csrf-per-request
+            {{- end }}
+            {{- if .Values.security.cookieCsrfExpire }}
+            - --cookie-csrf-expire={{ .Values.security.cookieCsrfExpire }}
+            {{- end }}
+            # Logging configuration
+            {{- if .Values.logging.requestLogging }}
+            - --request-logging
+            {{- end }}
+            {{- if .Values.logging.authLogging }}
+            - --auth-logging
+            {{- end }}
+            {{- if .Values.logging.standardLogging }}
+            - --standard-logging
+            {{- end }}
+            {{- if .Values.logging.silencePingLogging }}
+            - --silence-ping-logging
+            {{- end }}
+            # Templates and branding configuration
+            {{- if .Values.templates.customLogo.enabled }}
+            - --custom-sign-in-logo={{ .Values.templates.customLogo.path }}
+            {{- end }}
+            {{- if .Values.templates.banner }}
+            - --banner={{ .Values.templates.banner }}
+            {{- end }}
+            {{- if .Values.templates.footer }}
+            - --footer={{ .Values.templates.footer }}
+            {{- end }}
+            # Skip auth regex patterns
+            {{- range .Values.oauth2.skipAuthRegex }}
+            - --skip-auth-regex={{ . }}
+            {{- end }}
+            # API routes
+            {{- range .Values.oauth2.apiRoutes }}
+            - --api-route={{ . }}
+            {{- end }}
+            # Extra arguments
+            {{- range .Values.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          env:
+            # OAuth2 credentials
+            {{- if not .Values.externalSecrets.enabled }}
+            {{- if .Values.oauth2.clientId }}
+            - name: OAUTH2_PROXY_CLIENT_ID
+              value: {{ .Values.oauth2.clientId | quote }}
+            {{- else }}
+            - name: OAUTH2_PROXY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "oauth2proxy.fullname" . }}-secrets
+                  key: client-id
+            {{- end }}
+            {{- if .Values.oauth2.clientSecret }}
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              value: {{ .Values.oauth2.clientSecret | quote }}
+            {{- else }}
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "oauth2proxy.fullname" . }}-secrets
+                  key: client-secret
+            {{- end }}
+            {{- if .Values.oauth2.cookieSecret }}
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              value: {{ .Values.oauth2.cookieSecret | quote }}
+            {{- else }}
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "oauth2proxy.fullname" . }}-secrets
+                  key: cookie-secret
+            {{- end }}
+            {{- else }}
+            # External secrets configuration
+            - name: OAUTH2_PROXY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecrets.secretName }}
+                  key: {{ .Values.externalSecrets.keys.clientId }}
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecrets.secretName }}
+                  key: {{ .Values.externalSecrets.keys.clientSecret }}
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalSecrets.secretName }}
+                  key: {{ .Values.externalSecrets.keys.cookieSecret }}
+            {{- end }}
+            # Additional environment variables
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 4180
+              protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.templates.customLogo.enabled }}
+            - name: logo-volume
+              mountPath: /etc/oauth2-proxy/logo
+              readOnly: true
+            {{- end }}
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      {{- if or .Values.templates.customLogo.enabled .Values.volumes }}
+      volumes:
+        {{- if .Values.templates.customLogo.enabled }}
+        - name: logo-volume
+          configMap:
+            name: {{ include "oauth2proxy.fullname" . }}-logo
+        {{- end }}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

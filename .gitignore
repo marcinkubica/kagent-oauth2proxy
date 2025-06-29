@@ -1,0 +1,64 @@
+# Kubernetes secrets and sensitive files
+*.secret
+*.key
+*.pem
+*.crt
+secrets/
+secrets.yaml
+.env
+.env.local
+.env.*.local
+.env.oauth2proxy
+.env.oauth*
+oauth2proxy-secrets.yaml
+*-secrets.yaml
+
+# Helm
+.helm/
+charts/*.tgz
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local values files for testing
+*-local.yaml
+*-test.yaml
+test-values-*.yaml
+
+# OAuth2 and authentication files
+.oauth2proxy-config
+oauth2proxy-client-*
+client-credentials.txt
+github-oauth-*.json
+auth-config.yaml
+oauth-credentials.*
+github-client-*
+*.credentials
+credentials.*
+
+# Backup files
+*.bak
+*.backup
