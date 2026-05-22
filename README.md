@@ -1,3 +1,10 @@
+
+> [!IMPORTANT]
+> Since kagent now includes oauth2 proxy this repo is archived. 
+> Please see https://github.com/kagent-dev/kagent/pull/1293
+
+---
+
 # Standalone OAuth2 Proxy for Kagent (github)
 
 This directory contains a standalone OAuth2 Proxy Helm chart that provides authentication for Kagent UI. The oauth2proxy runs as a completely separate deployment and proxies authenticated requests to the Kagent service.
